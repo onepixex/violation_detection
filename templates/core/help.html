@@ -1,0 +1,68 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Помощь{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="mb-4 text-center">Как пользоваться системой анализа видео</h2>
+
+    <section class="mb-5">
+        <h4>1. Загрузка видео</h4>
+        <p>Чтобы начать анализ, загрузите видеофайл, перетащив его в область загрузки или нажав кнопку <strong>"Выбрать видео"</strong>.</p>
+        <p>Дополнительно можно ввести название для видео — оно отобразится в результатах. Если не указывать название видео, то будет присвоено имя загруженного файла.</p>
+
+        <div class="text-center my-4">
+            <img src="{% static 'images/step1_upload.png' %}" alt="Пример загрузки видео" class="img-fluid rounded shadow w-100" style="max-width: 700px;">
+            <p class="text-muted mt-2">* Пример загрузки файла</p>
+        </div>
+    </section>
+
+    <section class="mb-5">
+        <h4>2. Анализ и ожидание</h4>
+        <p>После загрузки начнётся процесс анализа. На экране появится индикатор выполнения:</p>
+
+        <div class="text-center my-4">
+            <img src="{% static 'images/step2_progress.png' %}" alt="Прогресс анализа" class="img-fluid rounded shadow w-100" style="max-width: 700px;">
+            <p class="text-muted mt-2">* Процесс обработки видео</p>
+        </div>
+
+        <p>Можно не дожидаясь конца обработки, сразу приступить к обработке нового видео.</p>
+    </section>
+
+    <section class="mb-5">
+        <h4>3. Результат</h4>
+        <p>После анализа вы увидите результат в виде:</p>
+        <ul>
+            <li><strong>Обработанного видео</strong> с отмеченными объектами и нарушениями</li>
+            <li><strong>График нарушений</strong>, отображающий рейтинг совершённых нарушений</li>
+        </ul>
+
+        <div class="text-center my-4">
+            <img src="{% static 'images/step3_result.png' %}" alt="Пример результата" class="img-fluid rounded shadow w-100" style="max-width: 700px;">
+            <p class="text-muted mt-2">* Отчёт по обработанному видео</p>
+        </div>
+    </section>
+
+    <div class="text-center">
+        <a href="{% url 'upload' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-upload me-2"></i>Перейти к загрузке видео
+        </a>
+    </div>
+</div>
+
+<style>
+    /* Дополнительные стили для мобильных устройств */
+    @media (max-width: 768px) {
+        .container {
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+        img {
+            height: auto;
+        }
+        body > nav > div > a > img {
+            width: 32px;
+        }
+    }
+</style>
+{% endblock %}

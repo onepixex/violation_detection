@@ -1,0 +1,231 @@
+{% extends 'core/base.html' %}
+{% block title %}Загрузка видео{% endblock %}
+
+{% block style %}
+<style>
+.card-body.p-0.drag-over {
+    background-color: #f0f0f0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5 text-center">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 id="upload-title" class="mb-0">Загрузите видео для анализа</h2>
+        <div class="d-flex gap-2">
+            <a href="{% url 'help' %}" class="btn btn-outline-info">
+                Помощь
+            </a>
+            <a href="" class="btn btn-outline-secondary d-none" id="new-upload-btn">
+                <i class="bi bi-arrow-repeat"></i> Обработать новое видео
+            </a>
+        </div>
+    </div>
+
+
+    <div class="card border-0 shadow-lg overflow-hidden">
+        <div class="card-body p-0">
+            <form method="post" enctype="multipart/form-data" id="upload-form" class="text-center">
+                {% csrf_token %}
+                <div class="mb-4" style="margin-top: 30px">
+                    <i class="bi bi-cloud-arrow-up display-4 text-primary mb-3"></i>
+                    <h4 class="mb-3">Перетащите файл сюда</h4>
+                    <p class="text-muted mb-4">или выберите файл вручную</p>
+
+                    <label for="video-upload" class="btn btn-primary btn-lg rounded-pill px-4 shadow-sm">
+                        <i class="bi bi-upload me-2"></i> Выбрать видео
+                    </label>
+                    <input type="file" id="video-upload" name="video" class="d-none" accept="video/*" required>
+
+                    <div id="file-info" class="mt-3">
+                        <div id="file-name" class="text-muted small">Файл не выбран</div>
+                    </div>
+                </div>
+                <div class="mt-3 mb-4" id="title-input-container" style="max-width: 700px; margin: 0 auto;">
+                    <input type="text" id="video-title" name="title" class="form-control" maxlength="100" placeholder="Введите название (необязательно)">
+                </div>
+                <button type="submit" class="btn btn-success btn-lg rounded-pill px-4 shadow-sm">
+                    <i class="bi bi-play-circle me-2"></i> Начать анализ
+                </button>
+            </form>
+            
+            <div id="progress-section" class="d-none mt-4">
+                <h5 class="mb-3" id="progress-label">Загрузка видео на сервер...</h5>
+
+                <div class="progress mb-3">
+                    <div id="upload-progress-bar" class="progress-bar" style="width: 0%">0%</div>
+                </div>
+
+                <div class="progress mb-3 d-none">
+                    <div id="analyze-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
+                </div>
+
+                <div class="progress d-none">
+                    <div id="ffmpeg-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width: 0%">0%</div>
+                </div>
+            </div>
+
+
+        <div id="result-container" class="d-none mt-5">
+            <div class="d-flex justify-content-center align-items-center mb-4 gap-2 flex-wrap text-center">
+                <h4 class="mb-0">Результат анализа</h4>
+                "<h4 id="result-video-title" class="mb-0"></h4>"
+            </div>
+
+            <div class="mb-4">
+                 <video id="processed-video" width="97%" height="auto" controls class="rounded shadow">
+                    <source src="" type="video/mp4">
+                    Ваш браузер не поддерживает видео.
+                </video>
+            </div>
+
+            <div>
+                <h4 class="mb-4 text-center">График нарушений</h4>
+                <img id="violation-graph" class="img-fluid border rounded p-2 bg-light d-block mx-auto" src="" alt="График нарушений" style="margin-bottom: 30px">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('video-upload').onchange = e => {
+    const fileName = e.target.files[0]?.name || 'Файл не выбран';
+    document.getElementById('file-name').textContent = fileName;
+};
+
+document.getElementById('upload-form').onsubmit = e => {
+    e.preventDefault();
+
+    const form = document.getElementById('upload-form');
+    const progressSection = document.getElementById('progress-section');
+    const uploadBar = document.getElementById('upload-progress-bar');
+    const analyzeBar = document.getElementById('analyze-progress-bar');
+    const ffmpegBar = document.getElementById('ffmpeg-progress-bar');
+    const progressLabel = document.getElementById('progress-label');
+
+    const result = document.getElementById('result-container');
+    const videoEl = document.getElementById('processed-video');
+    const graph = document.getElementById('violation-graph');
+    const uploadTitle = document.getElementById('upload-title');
+    const newBtn = document.getElementById('new-upload-btn');
+    const resultTitle = document.getElementById('result-video-title');
+    const titleInputContainer = document.getElementById('title-input-container');
+    const customTitle = document.getElementById('video-title').value.trim();
+    const fileInput = document.getElementById('video-upload');
+    const file = fileInput.files[0];
+
+    form.classList.add('d-none');
+    uploadTitle.classList.add('d-none');
+    titleInputContainer.classList.add('d-none');
+    result.classList.add('d-none');
+    progressSection.classList.remove('d-none');
+
+    progressLabel.textContent = 'Загрузка файла...';
+    uploadBar.parentElement.classList.remove('d-none');
+    analyzeBar.parentElement.classList.add('d-none');
+    ffmpegBar.parentElement.classList.add('d-none');
+
+    const formData = new FormData(form);
+    if (customTitle) formData.append('title', customTitle);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "{% url 'upload' %}");
+
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            uploadBar.style.width = percent + '%';
+            uploadBar.textContent = percent + '%';
+        }
+    };
+
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            const data = JSON.parse(xhr.responseText);
+            const id = data.video_id;
+
+            // Переключение на анализ
+            progressLabel.textContent = 'Анализ видео...';
+            uploadBar.parentElement.classList.add('d-none');
+            analyzeBar.parentElement.classList.remove('d-none');
+
+            const poll = setInterval(() => {
+                fetch(`/progress/${id}/`).then(r => r.json()).then(d => {
+                    analyzeBar.style.width = d.progress + '%';
+                    analyzeBar.textContent = d.progress + '%';
+
+                    if (d.progress >= 100) {
+                        clearInterval(poll);
+
+                        // Переключение на ffmpeg
+                        progressLabel.textContent = 'Обработка с помощью FFmpeg...';
+                        analyzeBar.parentElement.classList.add('d-none');
+                        ffmpegBar.parentElement.classList.remove('d-none');
+
+                        // Симуляция финальной обработки (в реальности может быть прогресс из другого источника)
+                        let ffmpegProgress = 0;
+                        const simulate = setInterval(() => {
+                            ffmpegProgress += 10;
+                            ffmpegBar.style.width = ffmpegProgress + '%';
+                            ffmpegBar.textContent = ffmpegProgress + '%';
+
+                            if (ffmpegProgress >= 100) {
+                                clearInterval(simulate);
+                                progressSection.classList.add('d-none');
+                                newBtn.classList.remove('d-none');
+                                newBtn.href = window.location.href;
+
+                                fetch(`/result/${id}/`)
+                                    .then(r => r.json())
+                                    .then(res => {
+                                        if (res.video_url) {
+                                            videoEl.src = res.video_url;
+                                            graph.src = `/graph/?video_ids=${id}`;
+
+                                            const fallbackTitle = file ? file.name.replace(/\.[^/.]+$/, '') : 'Видео';
+                                            resultTitle.textContent = customTitle || fallbackTitle;
+
+                                            result.classList.remove('d-none');
+                                        }
+                                    });
+                            }
+                        }, 200); // примерная симуляция, можно заменить на реальный API
+                    }
+                });
+            }, 1000);
+        }
+    };
+
+    xhr.send(formData);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const dropZone = document.querySelector('.card-body.p-0');
+    const fileInput = document.getElementById('video-upload');
+    const fileName = document.getElementById('file-name');
+
+    dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('video/')) {
+            fileInput.files = e.dataTransfer.files;
+            fileName.textContent = file.name;
+        }
+    });
+});
+</script>
+{% endblock %}

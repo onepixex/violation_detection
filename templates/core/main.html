@@ -1,0 +1,29 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        background-image: url('{% static "images/background.gif" %}');
+        background-repeat: no-repeat;
+        background-size: cover;
+        color: white;
+    }
+    .container-content {
+        background-color: rgba(0, 0, 0, 0.7);
+        border-radius: 10px;
+        padding: 30px;
+        margin-top: 50px;
+    }
+</style>
+
+<div class="container container-content text-center">
+    <h1 class="display-4 mb-4">Алгоритм анализа и классификации опасных ситуаций на видеоизображениях дорожного движения с использованием модели детекции объектов</h1>
+    <p class="lead mb-5">Загружайте свои видео и получайте детальный анализ нарушений.</p>
+    <a href="{% url 'upload' %}" class="btn btn-custom btn-lg">Начать анализ</a>
+</div>
+{% endblock %}
+
+

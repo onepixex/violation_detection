@@ -1,0 +1,190 @@
+{% extends 'core/base.html' %}
+{% block title %}Модель детекции{% endblock %}
+
+{% block content %}
+<style>
+    /* Увеличиваем размеры шрифтов для всех элементов */
+    body {
+        font-size: 1.1rem;
+    }
+    .form-label, .form-check-label {
+        font-size: 1.1rem;
+    }
+    .form-control, .form-range, .form-select, .btn {
+        font-size: 1.1rem;
+    }
+    small.text-muted {
+        font-size: 1rem;
+    }
+    .tooltip-inner {
+        font-size: 1rem;
+    }
+    #result-section h4 {
+        font-size: 1.5rem;
+    }
+</style>
+
+<div class="container py-5">
+    <!-- Этот заголовок остается без изменений -->
+    <h2 class="mb-4 text-center">Загрузите фото или видео для распознавания</h2>
+
+    <form id="detection-form" method="post" enctype="multipart/form-data" class="border p-4 rounded shadow-sm bg-light">
+        {% csrf_token %}
+
+        <div class="mb-4 text-center">
+            <input type="text" name="media_name" id="media_name" class="form-control" placeholder="Введите название (необязательно)">
+        </div>
+        <div class="mb-4 text-center">
+            <input type="file" name="media" id="media" class="form-control" accept="image/*,video/*" required>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="conf" class="form-label">
+                    Уверенность
+                    <i class="bi bi-question-circle-fill text-primary" data-bs-toggle="tooltip" title="Минимальный уровень уверенности модели для отображения объекта."></i>
+                </label>
+                <input type="range" name="conf" id="conf" min="0" max="1" step="0.01" value="0.35" class="form-range">
+                <small class="text-muted" id="conf-val">0.35</small>
+            </div>
+            <div class="col-md-3">
+                <label for="iou" class="form-label">
+                    IoU
+                    <i class="bi bi-question-circle-fill text-primary" data-bs-toggle="tooltip" title="Intersection over Union — порог перекрытия для объединения обнаружений."></i>
+                </label>
+                <input type="range" name="iou" id="iou" min="0" max="1" step="0.01" value="0.7" class="form-range">
+                <small class="text-muted" id="iou-val">0.7</small>
+            </div>
+            <div class="col-md-3">
+                <label for="max_det" class="form-label">
+                    Максимальное количество объектов
+                    <i class="bi bi-question-circle-fill text-primary" data-bs-toggle="tooltip" title="Ограничение на число объектов, распознаваемых на одном кадре."></i>
+                </label>
+                <input type="number" name="max_det" id="max_det" class="form-control" value="30" min="1" max="100">
+            </div>
+            <div class="col-md-3">
+                <label for="vid_stride" class="form-label">
+                    Обрабатываемые кадры (видео)
+                    <i class="bi bi-question-circle-fill text-primary" data-bs-toggle="tooltip" title="Пропуск кадров: 1 — каждый кадр, 2 — через один и т.д."></i>
+                </label>
+                <input type="number" name="vid_stride" id="vid_stride" class="form-control" value="1" min="1">
+            </div>
+        </div>
+
+        <div class="row mt-3 g-3" style="display:flex; align-items:center">
+            <div class="col-md-3 form-check">
+                <input type="checkbox" name="show_labels" id="show_labels" class="form-check-input" checked>
+                <label for="show_labels" class="form-check-label">
+                    Показать названия классов
+                    <i class="bi bi-question-circle-fill text-primary" data-bs-toggle="tooltip" title="Показывать надписи с названиями объектов на изображении."></i>
+                </label>
+            </div>
+            <div class="col-md-3 form-check">
+                <input type="checkbox" name="show_boxes" id="show_boxes" class="form-check-input" checked>
+                <label for="show_boxes" class="form-check-label">
+                    Показать рамки
+                    <i class="bi bi-question-circle-fill text-primary" data-bs-toggle="tooltip" title="Отображать рамки вокруг распознанных объектов."></i>
+                </label>
+            </div>
+            <div class="col-md-3">
+                <label for="line_width" class="form-label">
+                    Толщина линии
+                    <i class="bi bi-question-circle-fill text-primary" data-bs-toggle="tooltip" title="Толщина обводки вокруг объекта (в пикселях)."></i>
+                </label>
+                <input type="range" name="line_width" id="line_width" min="1" max="10" step="1" value="1" class="form-range">
+                <small class="text-muted" id="line_width-val">1</small>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <div class="col-md-6">
+                <label class="form-label">Распознаваемые классы:</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="classes" value="0" id="car" checked>
+                    <label class="form-check-label" for="car">Автомобиль</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="classes" value="2" id="pedestrian" checked>
+                    <label class="form-check-label" for="pedestrian">Пешеход</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="classes" value="1" id="red_light" checked>
+                    <label class="form-check-label" for="red_light">Красный сигнал светофора</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="classes" value="3" id="solid_line" checked>
+                    <label class="form-check-label" for="solid_line">Сплошная линия разметки</label>
+                </div>
+            </div>
+
+            <div class="mt-4 text-center">
+                <button type="submit" class="btn btn-primary px-5 py-2">
+                    <i class="bi bi-play-circle me-2"></i>Начать распознавание
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div id="result-section" class="mt-5 d-none">
+        <h4 class="text-center mb-4">Результат</h4>
+        <div class="text-center" id="media-preview"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('conf').oninput = (e) => {
+    document.getElementById('conf-val').textContent = e.target.value;
+};
+document.getElementById('iou').oninput = (e) => {
+    document.getElementById('iou-val').textContent = e.target.value;
+};
+document.getElementById('line_width').oninput = (e) => {
+    document.getElementById('line_width-val').textContent = e.target.value;
+};
+
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+    new bootstrap.Tooltip(el);
+});
+
+document.getElementById('detection-form').onsubmit = function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    const classes = Array.from(document.querySelectorAll('input[name="classes"]:checked')).map(i => i.value);
+    formData.append('class_list', JSON.stringify(classes));
+
+    fetch("{% url 'detection_process' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const preview = document.getElementById('media-preview');
+        document.getElementById('result-section').classList.remove('d-none');
+
+        const videoExtensions = ['.mp4', '.avi', '.mov', '.webm'];
+        const isVideo = videoExtensions.some(ext => data.output_url.toLowerCase().endsWith(ext));
+
+        if (isVideo) {
+            const ext = data.output_url.split('.').pop();
+            preview.innerHTML = `
+                <video controls width="80%" class="rounded shadow">
+                    <source src="${data.output_url}" type="video/${ext}">
+                    Ваш браузер не поддерживает видео.
+                </video>`;
+        } else {
+            preview.innerHTML = `<img src="${data.output_url}" class="img-fluid rounded shadow">`;
+        }
+    })
+    .catch(err => {
+        alert("Ошибка при распознавании: " + err);
+        console.error(err);
+    });
+};
+</script>
+{% endblock %}

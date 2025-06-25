@@ -1,0 +1,13 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+.btn-custom {
+    background-color: #4a76a8;
+    color: white;
+    border: none;
+}
+
+.btn-custom:hover {
+    background-color: #3a5f8a;
+}

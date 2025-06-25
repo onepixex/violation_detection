@@ -1,0 +1,374 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Предыдущие результаты{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="text-center mb-4">Предыдущие видео</h2>
+
+    {% if videos %}
+    <form id="graph-form" method="get" action="{% url 'violation_graph' %}">
+        <!-- Панель управления, теперь видна и на мобильных -->
+        <div class="control-panel d-flex flex-wrap justify-content-center gap-2 mb-3 sticky-top bg-white py-2 border-bottom shadow-sm" style="z-index: 1030;">
+            <button type="submit" name="mode" value="single" class="btn btn-outline-primary btn-sm">Построить график</button>
+            <button type="submit" name="mode" value="compare" class="btn btn-outline-info btn-sm">Сравнить графики</button>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAll()">Выбрать все</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">Очистить выбранные</button>
+            <button type="button" class="btn btn-outline-warning btn-sm" onclick="deleteSelected()">Удалить выбранные</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteAll()">Удалить все</button>
+        </div>
+
+        <div class="row">
+            {% for video in videos %}
+            <div class="col-sm-12 col-md-6 col-lg-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="form-check float-end">
+                            {% if video.processed_video %}
+                            <input class="form-check-input video-checkbox" type="checkbox" name="video_ids" value="{{ video.id }}">
+                            {% endif %}
+                        </div>
+
+                        <!-- Название с возможностью редактирования -->
+                        <h5 class="card-title mb-1 d-flex align-items-center justify-content-between">
+                            <span class="video-title" data-video-id="{{ video.id }}">{{ video.title|default:"Видеофайл" }}</span>
+                            <button type="button" class="btn btn-sm btn-link text-decoration-none px-1" onclick="editTitle({{ video.id }})">✏</button>
+                        </h5>
+
+                        <div class="edit-title-form d-none mb-2" id="edit-title-{{ video.id }}">
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control" id="title-input-{{ video.id }}" value="{{ video.title|default:"Видеофайл" }}">
+                                <button class="btn btn-success" onclick="saveTitle({{ video.id }})">💾</button>
+                                <button class="btn btn-secondary" onclick="cancelTitle({{ video.id }})">✖</button>
+                            </div>
+                        </div>
+
+                        <p class="card-text mb-2" style="font-size: 0.85rem;"><strong>Загружено:</strong> {{ video.created_at|date:"H:i d.m.Y" }}</p>
+
+                        {% if video.processed_video %}
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#viewModal" data-video-url="{{ video.processed_video.url }}">
+                                    Просмотреть обработанное
+                                </button>
+                                <a href="{{ video.processed_video.url }}" download class="btn btn-outline-success btn-sm">
+                                    <img src="{% static 'images/download.png' %}" alt="Скачать" style="width: 20px; height: 20px;">
+                                </a>
+                            </div>
+
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#viewModal" data-video-url="{{ video.video.url }}">
+                                    Просмотреть оригинал
+                                </button>
+                                <a href="{{ video.video.url }}" download class="btn btn-outline-success btn-sm">
+                                    <img src="{% static 'images/download.png' %}" alt="Скачать" style="width: 20px; height: 20px;">
+                                </a>
+                            </div>
+                        </div>
+
+                        {% if video.violation %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered mb-0" style="font-size: 0.78rem; line-height: 1;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Нарушение</th>
+                                        <th>Кол-во</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for key, value in video.violation.items %}
+                                    <tr>
+                                        <td>{{ key }}</td>
+                                        <td>{{ value }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {% if video.violation_summary %}
+                        <div class="mt-2">
+                            <span class="badge bg-info text-dark" style="font-size: 0.75rem;">{{ video.violation_summary }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% endif %}
+                        {% else %}
+                            <p class="text-warning mb-0">Обработка ещё не завершена.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </form>
+    {% else %}
+        <p class="text-center text-muted">Нет загруженных видео.</p>
+    {% endif %}
+
+        <h2 class="text-center mb-4 mt-5">Результаты распознавания</h2>
+
+        {% if recognition_models %}
+    <div class="row">
+        {% for model in recognition_models %}
+        <div class="col-sm-12 col-md-6 col-lg-4 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-1">
+                        {{ model.title|default:"Файл распознавания" }}
+                        <small class="text-muted">({{ model.get_media_type_display }})</small>
+                    </h5>
+                    <p class="card-text mb-2" style="font-size: 0.85rem;">
+                        <strong>Загружено:</strong> {{ model.created_at|date:"H:i d.m.Y" }}
+                    </p>
+
+                    {% if model.processed_media %}
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <div class="btn-group" role="group">
+                            {% if model.media_type == 'video' %}
+                                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#viewModal" data-video-url="{{ model.processed_media.url }}">
+                                    Просмотреть результат
+                                </button>
+                            {% else %}
+                                <a href="{{ model.processed_media.url }}" class="btn btn-primary btn-sm" target="_blank">
+                                    Просмотреть изображение
+                                </a>
+                            {% endif %}
+                            <a href="{{ model.processed_media.url }}" download class="btn btn-outline-success btn-sm">
+                                <img src="{% static 'images/download.png' %}" alt="Скачать" style="width: 20px; height: 20px;">
+                            </a>
+                        </div>
+
+                        <div class="btn-group" role="group">
+                            {% if model.media_type == 'video' %}
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#viewModal" data-video-url="{{ model.original_media.url }}">
+                                    Просмотреть оригинал
+                                </button>
+                            {% else %}
+                                <a href="{{ model.original_media.url }}" class="btn btn-outline-secondary btn-sm" target="_blank">
+                                    Просмотреть оригинал
+                                </a>
+                            {% endif %}
+                            <a href="{{ model.original_media.url }}" download class="btn btn-outline-success btn-sm">
+                                <img src="{% static 'images/download.png' %}" alt="Скачать" style="width: 20px; height: 20px;">
+                            </a>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-outline-dark btn-sm mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#params{{ model.id }}">
+                        Показать параметры обработки
+                    </button>
+
+                    <div class="collapse mb-2" id="params{{ model.id }}">
+                        <div class="card card-body" style="font-size: 0.8rem;">
+                            <h6 class="card-subtitle mb-2 text-muted">Параметры обработки:</h6>
+                            <ul class="list-unstyled mb-0">
+                                {% if model.processing_params.conf is not None %}
+                                <li><strong>Уверенность от:</strong> {{ model.processing_params.conf|floatformat:2|stringformat:"s"|slice:"2:" }} %</li>
+                                {% endif %}
+
+                                {% if model.processing_params.iou is not None %}
+                                <li><strong>IOU (пересечение/объединение):</strong> {{ model.processing_params.iou }}</li>
+                                {% endif %}
+
+                                {% if model.processing_params.max_det is not None %}
+                                <li><strong>Максимальное количество объектов:</strong> {{ model.processing_params.max_det }}</li>
+                                {% endif %}
+
+                                {% if model.processing_params.line_width is not None %}
+                                <li><strong>Толщина линий:</strong> {{ model.processing_params.line_width }}px</li>
+                                {% endif %}
+
+                                {% if model.processing_params.show_labels is not None %}
+                                <li><strong>Показ названий:</strong> {{ model.processing_params.show_labels|yesno:"Да,Нет" }}</li>
+                                {% endif %}
+
+                                {% if model.processing_params.show_boxes is not None %}
+                                <li><strong>Показ прямоугольников:</strong> {{ model.processing_params.show_boxes|yesno:"Да,Нет" }}</li>
+                                {% endif %}
+
+                                {% if model.processing_params.vid_stride is not None and model.media_type == 'video' %}
+                                <li><strong>Пропуск кадров:</strong> {{ model.processing_params.vid_stride }}</li>
+                                {% endif %}
+
+                                {% if model.processing_params.classes %}
+                                <li>
+                                    <strong>Классы для детекции:</strong>
+                                    <ul>
+                                        {% for class_id in model.processing_params.classes %}
+                                            {% if class_id == "0" %}
+                                            <li>0 - Машина</li>
+                                            {% elif class_id == "1" %}
+                                            <li>1 - Пешеход</li>
+                                            {% elif class_id == "2" %}
+                                            <li>2 - Красный светофор</li>
+                                            {% elif class_id == "3" %}
+                                            <li>3 - Сплошная линия разметки</li>
+                                            {% else %}
+                                            <li>{{ class_id }} - Неизвестный класс</li>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </ul>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+
+                    {% if model.detection_txt %}
+                    <div class="mt-2">
+                        <a href="{{ model.detection_txt.url }}" download class="btn btn-outline-info btn-sm">
+                            Скачать результаты детекции (TXT)
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    {% else %}
+                        <p class="text-warning mb-0">Обработка ещё не завершена.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <p class="text-center text-muted">Нет результатов распознавания.</p>
+    {% endif %}
+
+    <div class="modal fade" id="viewModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Просмотр видео</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <video id="modal-video" class="w-100" controls>
+                        <source src="" type="video/mp4">
+                        Ваш браузер не поддерживает видео.
+                    </video>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('viewModal')?.addEventListener('show.bs.modal', function (event) {
+    const button = event.relatedTarget;
+    const videoUrl = button.getAttribute('data-video-url');
+    const videoElement = document.getElementById('modal-video');
+    videoElement.src = videoUrl;
+});
+
+document.getElementById('viewModal')?.addEventListener('hidden.bs.modal', function () {
+    const videoElement = document.getElementById('modal-video');
+    videoElement.pause();
+    videoElement.src = "";
+});
+
+function selectAll() {
+    document.querySelectorAll('.video-checkbox').forEach(cb => cb.checked = true);
+}
+
+function clearSelection() {
+    document.querySelectorAll('.video-checkbox').forEach(cb => cb.checked = false);
+}
+
+function deleteSelected() {
+    const selected = Array.from(document.querySelectorAll('.video-checkbox:checked'));
+    if (selected.length === 0) return alert("Выберите хотя бы одно видео.");
+    if (confirm("Удалить выбранные видео?")) {
+        const ids = selected.map(cb => cb.value);
+        fetch("{% url 'delete_selected' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken"),
+            },
+            body: JSON.stringify({ video_ids: ids })
+        }).then(res => {
+            if (res.ok) location.reload();
+            else alert("Ошибка при удалении.");
+        });
+    }
+}
+
+function deleteAll() {
+    if (confirm("Удалить ВСЕ видео? Это действие необратимо.")) {
+        fetch("{% url 'delete_all' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": getCookie("csrftoken")
+            }
+        }).then(res => {
+            if (res.ok) location.reload();
+            else alert("Ошибка при удалении всех.");
+        });
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Редактирование названия видео
+function editTitle(videoId) {
+    document.querySelector(`#edit-title-${videoId}`).classList.remove('d-none');
+}
+
+function cancelTitle(videoId) {
+    document.querySelector(`#edit-title-${videoId}`).classList.add('d-none');
+}
+
+function saveTitle(videoId) {
+    const newTitle = document.querySelector(`#title-input-${videoId}`).value.trim();
+    if (!newTitle) return alert("Название не может быть пустым.");
+
+    // Предотврати сабмит формы
+    event?.preventDefault?.();
+
+    fetch(`/videos/${videoId}/update_title/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken")
+        },
+        body: JSON.stringify({ title: newTitle })
+    })
+    .then(response => {
+        if (response.ok) {
+            document.querySelector(`.video-title[data-video-id="${videoId}"]`).textContent = newTitle;
+            cancelTitle(videoId);
+        } else {
+            alert("Ошибка при обновлении названия.");
+        }
+    });
+}
+
+document.getElementById('graph-form').addEventListener('submit', function(e) {
+    const mode = e.submitter?.value;
+    if (mode === 'compare') {
+        const selected = document.querySelectorAll('.video-checkbox:checked');
+        if (selected.length < 2) {
+            e.preventDefault();
+            alert('Для сравнения графиков необходимо выбрать как минимум два видео!');
+        }
+    }
+});
+</script>
+{% endblock %}
